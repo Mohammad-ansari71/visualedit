@@ -1,0 +1,29 @@
+train:
+  images: ../train/images
+  labels: ../train/labels
+
+val:
+  images: ../valid/images
+  labels: ../valid/labels
+
+test:
+  images: ../test/images
+  labels: ../test/labels
+
+nc: 14
+
+names:
+  0: "-"
+  1: "Aplysina aerophoba"
+  2: "Asteroidea"
+  3: "Astropecten spp"
+  4: "Condylactis aurantiaca"
+  5: "Echinaster sepositus"
+  6: "Gobius sp"
+  7: "Holothuria tubulosa"
+  8: "Keratosa -cfr Sarcotragus-"
+  9: "Phaeophyceae -cfr Cystoseira-"
+  10: "Rifiuto"
+  11: "Sarcotragus spinosulus"
+  12: "Serranus scriba"
+  13: "Sphaerechinus granularis"
