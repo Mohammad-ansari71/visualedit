@@ -32,14 +32,121 @@ class ImageViewer:
         self.current_image = None  # PIL Image
         self.image_path = None
         self.current_annotations = []
+        self.zoom_factor = 1.0  # Initialize zoom factor
+        self.is_cropping = False  # Initialize cropping flag
+        self.rect_id = None  # Initialize rect_id for mouse drag rectangle
 
         # Main container with weight configuration
-        self.master.grid_rowconfigure(0, weight=1)
-        self.master.grid_columnconfigure(1, weight=1)
+        self.master.grid_rowconfigure(1, weight=1)  # Changed from 0 to 1 to make room for top controls
+        self.master.grid_columnconfigure(0, weight=1)
 
-        # Left panel (resizable)
-        left_panel = tk.PanedWindow(master, orient=tk.VERTICAL)
-        left_panel.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
+        # Control buttons at top - independent of panels
+        control_frame = tk.Frame(master)
+        control_frame.grid(row=0, column=0, sticky="ew", padx=2, pady=2)
+
+        # First row of controls
+        control_frame_1 = tk.Frame(control_frame)
+        control_frame_1.pack(fill=tk.X, pady=2)
+
+        # Add file management buttons to the first row
+        btn_delete_selected = tk.Button(control_frame_1, text="Delete Selected", command=self.delete_selected_files)
+        btn_delete_selected.pack(side=tk.LEFT, padx=2)
+
+        btn_half_resolution_selected = tk.Button(control_frame_1, text="Half Resolution Selected", command=self.halve_resolution_selected)
+        btn_half_resolution_selected.pack(side=tk.LEFT, padx=2)
+
+        btn_rename_image = tk.Button(control_frame_1, text="Rename Image", command=self.rename_current_image)
+        btn_rename_image.pack(side=tk.LEFT, padx=2)
+
+        btn_rename_selected = tk.Button(control_frame_1, text="Rename Selected", command=self.rename_selected_images)
+        btn_rename_selected.pack(side=tk.LEFT, padx=2)
+
+        btn_prev = tk.Button(control_frame_1, text="Prev", command=self.show_previous)
+        btn_prev.pack(side=tk.LEFT, padx=2)
+
+        btn_next = tk.Button(control_frame_1, text="Next", command=self.show_next)
+        btn_next.pack(side=tk.LEFT, padx=2)
+
+        chk_show = tk.Checkbutton(control_frame_1, text="Show Annotations",
+                                 variable=self.show_annotations, command=self.update_image)
+        chk_show.pack(side=tk.LEFT, padx=2)
+
+        btn_del_anno = tk.Button(control_frame_1, text="Delete Annotations",
+                                 command=self.delete_annotations)
+        btn_del_anno.pack(side=tk.LEFT, padx=2)
+
+        btn_del_img_anno = tk.Button(control_frame_1, text="Delete Image & Annotations",
+                                     command=self.delete_image_and_annotations)
+        btn_del_img_anno.pack(side=tk.LEFT, padx=2)
+
+        btn_rotate_left = tk.Button(control_frame_1, text="Rotate -90°",
+                                    command=self.rotate_image_counterclockwise)
+        btn_rotate_left.pack(side=tk.LEFT, padx=2)
+
+        btn_rotate_right = tk.Button(control_frame_1, text="Rotate +90°",
+                                     command=self.rotate_image_clockwise)
+        btn_rotate_right.pack(side=tk.LEFT, padx=2)
+
+        btn_flip = tk.Button(control_frame_1, text="Flip Horizontal",
+                             command=self.flip_image_horizontally)
+        btn_flip.pack(side=tk.LEFT, padx=2)
+
+        # Second row of controls
+        control_frame_2 = tk.Frame(control_frame)
+        control_frame_2.pack(fill=tk.X, pady=2)
+
+        # Labels for image and rectangle size - moved to the beginning of second row
+        self.image_size_label = ttk.Label(control_frame_2, text="Image Size: N/A")
+        self.image_size_label.pack(side=tk.LEFT, padx=2)
+
+        self.rect_size_label = ttk.Label(control_frame_2, text="Rect Size: N/A")
+        self.rect_size_label.pack(side=tk.LEFT, padx=2)
+
+        # Add zoom and transformation buttons to the second row
+        btn_zoom_in = tk.Button(control_frame_2, text="Zoom +", command=self.zoom_in)
+        btn_zoom_in.pack(side=tk.LEFT, padx=2)
+
+        btn_zoom_out = tk.Button(control_frame_2, text="Zoom -", command=self.zoom_out)
+        btn_zoom_out.pack(side=tk.LEFT, padx=2)
+
+        btn_reset_zoom = tk.Button(control_frame_2, text="Reset Zoom", command=self.reset_zoom)
+        btn_reset_zoom.pack(side=tk.LEFT, padx=2)
+
+        btn_crop = tk.Button(control_frame_2, text="Crop", command=self.activate_crop_mode)
+        btn_crop.pack(side=tk.LEFT, padx=2)
+
+        btn_half_resolution = tk.Button(control_frame_2, text="Half Resolution", command=self.halve_resolution)
+        btn_half_resolution.pack(side=tk.LEFT, padx=2)
+
+        btn_t512_this = tk.Button(control_frame_2, text="T512 (This)", command=lambda: self.tile_current_image(512))
+        btn_t512_this.pack(side=tk.LEFT, padx=2)
+
+        btn_t1280_this = tk.Button(control_frame_2, text="T1280 (This)", command=lambda: self.tile_current_image(1280))
+        btn_t1280_this.pack(side=tk.LEFT, padx=2)
+
+        btn_t512_all = tk.Button(control_frame_2, text="T512 (All)", command=lambda: self.tile_all_images(512))
+        btn_t512_all.pack(side=tk.LEFT, padx=2)
+
+        btn_t1280_all = tk.Button(control_frame_2, text="T1280 (All)", command=lambda: self.tile_all_images(1280))
+        btn_t1280_all.pack(side=tk.LEFT, padx=2)
+
+        btn_gray_transform = tk.Button(control_frame_2, text="Gray Transformation", command=self.apply_transformation_grigio)
+        btn_gray_transform.pack(side=tk.LEFT, padx=2)
+
+        # Add the Convert Labels and Smart Crop buttons
+        btn_label_convert = tk.Button(control_frame_2, text="Convert Labels", command=self.open_label_converter)
+        btn_label_convert.pack(side=tk.LEFT, padx=2)
+
+        btn_smart_crop = tk.Button(control_frame_2, text="Smart Crop", command=self.open_smart_crop)
+        btn_smart_crop.pack(side=tk.LEFT, padx=2)
+
+        # Create horizontal main pane
+        main_pane = tk.PanedWindow(master, orient=tk.HORIZONTAL)
+        main_pane.grid(row=1, column=0, sticky="nsew", padx=2, pady=2)
+
+        # Left panel (resizable vertically and horizontally)
+        left_panel = tk.PanedWindow(main_pane, orient=tk.VERTICAL)
+        main_pane.add(left_panel, stretch="always", width=300)  # Set initial width
 
         # Top controls in left panel
         top_controls_frame = tk.Frame(left_panel)
@@ -78,37 +185,9 @@ class ImageViewer:
         info_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.info_text.config(yscrollcommand=info_scrollbar.set)
 
-        # Right panel
-        right_panel = tk.Frame(master)
-        right_panel.grid(row=0, column=1, sticky="nsew", padx=2, pady=2)
-
-        # Control buttons at top
-        control_frame = tk.Frame(right_panel)
-        control_frame.pack(side=tk.TOP, fill=tk.X)
-
-        # First row of controls
-        control_frame_1 = tk.Frame(control_frame)
-        control_frame_1.pack(fill=tk.X, pady=2)
-
-        btn_prev = tk.Button(control_frame_1, text="Prev", command=self.show_previous)
-        btn_prev.pack(side=tk.LEFT, padx=2)
-
-        btn_next = tk.Button(control_frame_1, text="Next", command=self.show_next)
-        btn_next.pack(side=tk.LEFT, padx=2)
-
-        chk_show = tk.Checkbutton(control_frame_1, text="Show Annotations",
-                                 variable=self.show_annotations, command=self.update_image)
-        chk_show.pack(side=tk.LEFT, padx=2)
-
-        # Second row of controls
-        control_frame_2 = tk.Frame(control_frame)
-        control_frame_2.pack(fill=tk.X, pady=2)
-
-        btn_label_convert = tk.Button(control_frame_2, text="Convert Labels", command=self.open_label_converter)
-        btn_label_convert.pack(side=tk.LEFT, padx=2)
-        
-        btn_smart_crop = tk.Button(control_frame_2, text="Smart Crop", command=self.open_smart_crop)
-        btn_smart_crop.pack(side=tk.LEFT, padx=2)
+        # Right panel (resizable)
+        right_panel = tk.Frame(main_pane)
+        main_pane.add(right_panel, stretch="always")
 
         # Image display area
         canvas_frame = tk.Frame(right_panel)
@@ -133,6 +212,9 @@ class ImageViewer:
         
         # Bind Ctrl + mousewheel for zoom
         self.canvas.bind("<Control-MouseWheel>", self.on_mousewheel_zoom)
+        
+        # Bind regular mousewheel for scrolling
+        self._bind_mousewheel()
 
         # Load class names from YAML
         try:
@@ -149,10 +231,33 @@ class ImageViewer:
     def on_mousewheel_zoom(self, event):
         """Handle Ctrl + mousewheel zoom"""
         if event.state & 0x4:  # Check if Ctrl is pressed
+            # Get the current position to keep it centered when zooming
+            x = self.canvas.canvasx(event.x)
+            y = self.canvas.canvasy(event.y)
+            
+            # Calculate the percentage of the way across the image
+            x_percent = x / (self.current_image.width * self.zoom_factor) if self.current_image else 0
+            y_percent = y / (self.current_image.height * self.zoom_factor) if self.current_image else 0
+            
             if event.delta > 0:
-                self.zoom_in()
+                # Zoom in using a smoother factor
+                self.zoom_factor += 0.1
+                if self.zoom_factor > 5.0:
+                    self.zoom_factor = 5.0
             else:
-                self.zoom_out()
+                # Zoom out using a smoother factor
+                self.zoom_factor -= 0.1
+                if self.zoom_factor < 0.1:
+                    self.zoom_factor = 0.1
+            
+            self.update_image()
+            
+            # Adjust view to keep the position under the cursor
+            if self.current_image:
+                new_x = x_percent * (self.current_image.width * self.zoom_factor)
+                new_y = y_percent * (self.current_image.height * self.zoom_factor)
+                self.canvas.xview_moveto(max(0, (new_x - event.x)) / self.scaled_image.width)
+                self.canvas.yview_moveto(max(0, (new_y - event.y)) / self.scaled_image.height)
 
     def update_info_box(self):
         """Update the information box with current image details"""
@@ -173,42 +278,62 @@ class ImageViewer:
         if not img_path:
             return
 
+        # Store the current scroll position to restore it later
+        try:
+            x_scroll = self.canvas.xview()[0]
+            y_scroll = self.canvas.yview()[0]
+        except:
+            x_scroll = 0
+            y_scroll = 0
+
         # Carica l'immagine con PIL
         try:
-            self.current_image = Image.open(img_path).convert("RGB")
-            self.image_path = img_path
-            print(f"Loaded image: {img_path}")
+            # Only reload the image if the path has changed
+            if not hasattr(self, 'image_path') or self.image_path != img_path:
+                self.current_image = Image.open(img_path).convert("RGB")
+                self.image_path = img_path
+                print(f"Loaded image: {img_path}")
+
+                # Reset these attributes to force regeneration
+                if hasattr(self, 'base_display_image'):
+                    del self.base_display_image
+                if hasattr(self, 'scaled_image'):
+                    del self.scaled_image
+                if hasattr(self, 'tk_image'):
+                    del self.tk_image
+                
+                # Carica le annotazioni
+                base_name = os.path.splitext(os.path.basename(img_path))[0]
+                label_file = os.path.join(label_dir, base_name + ".txt")
+                if self.show_annotations.get():
+                    self.current_annotations = self.load_annotations(label_file)
+                    print(f"Loaded annotations for {base_name}: {self.current_annotations}")
+                else:
+                    self.current_annotations = []
+
+                # Calcola le annotazioni in pixel
+                self.current_annotations_pix = []
+                w, h = self.current_image.size
+                for ann in self.current_annotations:
+                    cls_id, x_c, y_c, w_a, h_a = ann
+                    x1 = int((x_c - w_a / 2) * w)
+                    y1 = int((y_c - h_a / 2) * h)
+                    x2 = int((x_c + w_a / 2) * w)
+                    y2 = int((y_c + h_a / 2) * h)
+                    self.current_annotations_pix.append((cls_id, x1, y1, x2, y2))
+
+                # Debug: stampa delle annotazioni caricate
+                print(f"Loaded annotations (YOLO): {self.current_annotations}")
+                print(f"Loaded annotations (pixel): {self.current_annotations_pix}")
+
+                # Aggiorna la label della dimensione dell'immagine
+                self.image_size_label.config(text=f"Image Size: {w} x {h}")
+            else:
+                print(f"Using cached image: {img_path}")
         except Exception as e:
             messagebox.showerror("Error", f"Error loading the image:\n{e}")
             self.current_image = None
             return
-
-        # Carica le annotazioni
-        base_name = os.path.splitext(os.path.basename(img_path))[0]
-        label_file = os.path.join(label_dir, base_name + ".txt")
-        if self.show_annotations.get():
-            self.current_annotations = self.load_annotations(label_file)
-            print(f"Loaded annotations for {base_name}: {self.current_annotations}")
-        else:
-            self.current_annotations = []
-
-        # Calcola le annotazioni in pixel
-        self.current_annotations_pix = []
-        w, h = self.current_image.size
-        for ann in self.current_annotations:
-            cls_id, x_c, y_c, w_a, h_a = ann
-            x1 = int((x_c - w_a / 2) * w)
-            y1 = int((y_c - h_a / 2) * h)
-            x2 = int((x_c + w_a / 2) * w)
-            y2 = int((y_c + h_a / 2) * h)
-            self.current_annotations_pix.append((cls_id, x1, y1, x2, y2))
-
-        # Debug: stampa delle annotazioni caricate
-        print(f"Loaded annotations (YOLO): {self.current_annotations}")
-        print(f"Loaded annotations (pixel): {self.current_annotations_pix}")
-
-        # Aggiorna la label della dimensione dell'immagine
-        self.image_size_label.config(text=f"Image Size: {w} x {h}")
 
         # Aggiorna la selezione nella listbox
         self.file_listbox.selection_clear(0, tk.END)
@@ -219,8 +344,22 @@ class ImageViewer:
         self.master.title(f"Visual Editor - {os.path.basename(img_path)}")
         print(f"Window title updated to: Visual Editor - {os.path.basename(img_path)}")
 
+        # Force update image and restore the scroll position
         self.update_image()
+        
+        # Restore the scroll position after short delay to ensure the canvas has updated
+        self.master.after(10, lambda: self.restore_scroll_position(x_scroll, y_scroll))
+        
         self.update_info_box()
+
+    # Add a helper method to restore scroll position
+    def restore_scroll_position(self, x_scroll, y_scroll):
+        """Restore the previous scroll position"""
+        try:
+            self.canvas.xview_moveto(x_scroll)
+            self.canvas.yview_moveto(y_scroll)
+        except:
+            pass  # Ignore errors if canvas isn't ready
 
     # ------------------ METODI DI GESTIONE FILE ------------------
     def gather_image_files(self):
@@ -286,7 +425,6 @@ class ImageViewer:
             return
         if self.index > 0:
             self.index -= 1
-            self.zoom_factor = 1.0
             print(f"Previous navigation. New index: {self.index}")
             self.load_current_image()
 
@@ -295,7 +433,6 @@ class ImageViewer:
             return
         if self.index < len(self.image_files) - 1:
             self.index += 1
-            self.zoom_factor = 1.0
             print(f"Next navigation. New index: {self.index}")
             self.load_current_image()
 
@@ -313,41 +450,68 @@ class ImageViewer:
         if self.current_image is None:
             return
 
-        pil_img = self.current_image.copy()
-
-        if self.show_annotations.get() and self.current_annotations:
-            pil_img = self.draw_boxes_on_image(pil_img, self.current_annotations, self.names)
+        # Create a new image only if annotations are toggled or first load
+        # Otherwise, we can just rescale the existing base image
+        if not hasattr(self, 'base_display_image') or self.show_annotations.get():
+            pil_img = self.current_image.copy()
+            if self.show_annotations.get() and self.current_annotations:
+                pil_img = self.draw_boxes_on_image(pil_img, self.current_annotations, self.names)
+            self.base_display_image = pil_img
+        else:
+            pil_img = self.base_display_image
 
         # Debug: stampa delle annotazioni prima del ridimensionamento
         print(f"Annotations before scaling: {self.current_annotations_pix}")
 
-        self.scaled_image = pil_img.resize(
-            (int(pil_img.width * self.zoom_factor), int(pil_img.height * self.zoom_factor)),
-            Image.LANCZOS
-        )
+        # Optimize image scaling by using a more efficient method for larger zoom factors
+        if self.zoom_factor >= 1.0:
+            # For zooming in, NEAREST is faster and still looks good for most images
+            resample_method = Image.NEAREST
+        else:
+            # For zooming out, stick with LANCZOS for better quality
+            resample_method = Image.LANCZOS
+
+        # Calculate new dimensions
+        new_width = int(pil_img.width * self.zoom_factor)
+        new_height = int(pil_img.height * self.zoom_factor)
+        
+        # Create a new scaled image and force canvas update
+        # Removed the conditional check to ensure the image is always displayed
+        self.scaled_image = pil_img.resize((new_width, new_height), resample_method)
         self.tk_image = ImageTk.PhotoImage(self.scaled_image)
-
+        
         self.canvas.delete("all")
-        self.canvas.config(scrollregion=(0, 0, self.scaled_image.width, self.scaled_image.height))
+        self.canvas.config(scrollregion=(0, 0, new_width, new_height))
         self.canvas.create_image(0, 0, anchor=tk.NW, image=self.tk_image)
-
+        
         # Debug: conferma del ridimensionamento
         print(f"Image scaled to: {self.scaled_image.size}")
+        
+        # Ensure the canvas is updated immediately
+        self.canvas.update_idletasks()
 
     # ------------------ ZOOM ------------------
     def zoom_in(self):
+        """Zoom in with improved performance"""
+        old_zoom = self.zoom_factor
         self.zoom_factor += 0.2
         if self.zoom_factor > 5.0:
             self.zoom_factor = 5.0
-        print(f"Zoom in. New zoom factor: {self.zoom_factor}")
-        self.update_image()
+            
+        if old_zoom != self.zoom_factor:  # Only update if zoom actually changed
+            print(f"Zoom in. New zoom factor: {self.zoom_factor}")
+            self.update_image()
 
     def zoom_out(self):
+        """Zoom out with improved performance"""
+        old_zoom = self.zoom_factor
         self.zoom_factor -= 0.2
         if self.zoom_factor < 0.2:
             self.zoom_factor = 0.2
-        print(f"Zoom out. New zoom factor: {self.zoom_factor}")
-        self.update_image()
+            
+        if old_zoom != self.zoom_factor:  # Only update if zoom actually changed
+            print(f"Zoom out. New zoom factor: {self.zoom_factor}")
+            self.update_image()
 
     def reset_zoom(self):
         """Resetta lo zoom all'impostazione predefinita (1.0)."""
@@ -550,23 +714,29 @@ class ImageViewer:
 
     def disable_rotation_buttons(self):
         """Disabilita i pulsanti di rotazione e flip per prevenire operazioni multiple simultanee."""
-        # Itera attraverso tutti i frame e disabilita i pulsanti di rotazione e flip
+        # Look for buttons in the control frame
         for child in self.master.winfo_children():
             if isinstance(child, tk.Frame):
-                for widget in child.winfo_children():
-                    if isinstance(widget, tk.Button) and widget['text'] in ["Rotate -90°", "Rotate +90°", "Horizontal Flip"]:
-                        widget.config(state=tk.DISABLED)
-                        print(f"Button disabled: {widget['text']}")
+                # Check if this is a control frame
+                for frame in child.winfo_children():
+                    if isinstance(frame, tk.Frame):  # This would be control_frame_1 or control_frame_2
+                        for widget in frame.winfo_children():
+                            if isinstance(widget, tk.Button) and widget['text'] in ["Rotate -90°", "Rotate +90°", "Horizontal Flip"]:
+                                widget.config(state=tk.DISABLED)
+                                print(f"Button disabled: {widget['text']}")
 
     def enable_rotation_buttons(self):
         """Riabilita i pulsanti di rotazione e flip dopo l'elaborazione."""
-        # Itera attraverso tutti i frame e riabilita i pulsanti di rotazione e flip
+        # Look for buttons in the control frame
         for child in self.master.winfo_children():
             if isinstance(child, tk.Frame):
-                for widget in child.winfo_children():
-                    if isinstance(widget, tk.Button) and widget['text'] in ["Rotate -90°", "Rotate +90°", "Horizontal Flip"]:
-                        widget.config(state=tk.NORMAL)
-                        print(f"Button re-enabled: {widget['text']}")
+                # Check if this is a control frame
+                for frame in child.winfo_children():
+                    if isinstance(frame, tk.Frame):  # This would be control_frame_1 or control_frame_2
+                        for widget in frame.winfo_children():
+                            if isinstance(widget, tk.Button) and widget['text'] in ["Rotate -90°", "Rotate +90°", "Horizontal Flip"]:
+                                widget.config(state=tk.NORMAL)
+                                print(f"Button re-enabled: {widget['text']}")
 
     # ------------------ EVENTI MOUSE ------------------
     def on_mouse_down(self, event):
@@ -1226,6 +1396,74 @@ class ImageViewer:
         except Exception as e:
             messagebox.showerror("Error", f"Error during conversion: {str(e)}")
 
+    def open_smart_crop(self):
+        """Opens the smart crop dialog with enhanced functionality."""
+        crop_window = tk.Toplevel(self.master)
+        crop_window.title("Smart Crop")
+        crop_window.geometry("600x500")
+        crop_window.transient(self.master)
+        crop_window.grab_set()
+
+        # Create frames for organization
+        path_frame = ttk.LabelFrame(crop_window, text="File Paths", padding=10)
+        path_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        options_frame = ttk.LabelFrame(crop_window, text="Crop Options", padding=10)
+        options_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        # Path entries and browse buttons
+        paths = [
+            ("Input Image Path (RoboFlow):", "input_img"),
+            ("Input Label Path (RoboFlow):", "input_lbl"),
+            ("Output Image Path (Original Size):", "output_img"),
+            ("Output Label Path:", "output_lbl")
+        ]
+
+        path_vars = {}
+        for label_text, key in paths:
+            frame = ttk.Frame(path_frame)
+            frame.pack(fill=tk.X, pady=2)
+            
+            ttk.Label(frame, text=label_text).pack(side=tk.LEFT)
+            path_vars[key] = tk.StringVar()
+            entry = ttk.Entry(frame, textvariable=path_vars[key])
+            entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+            ttk.Button(frame, text="Browse", 
+                      command=lambda v=path_vars[key]: self.browse_directory(v)).pack(side=tk.RIGHT)
+
+        # Crop options
+        # Mode selection
+        mode_frame = ttk.Frame(options_frame)
+        mode_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(mode_frame, text="Crop Mode:").pack(side=tk.LEFT)
+        mode_var = tk.StringVar(value="Centered")
+        mode_combo = ttk.Combobox(mode_frame, textvariable=mode_var, 
+                                 values=["Centered", "Random"], state="readonly")
+        mode_combo.pack(side=tk.LEFT, padx=5)
+
+        # Margin input
+        margin_frame = ttk.Frame(options_frame)
+        margin_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(margin_frame, text="Safe Margin (px):").pack(side=tk.LEFT)
+        margin_var = tk.StringVar(value="50")
+        margin_entry = ttk.Entry(margin_frame, textvariable=margin_var, width=10)
+        margin_entry.pack(side=tk.LEFT, padx=5)
+
+        # Resolution input
+        res_frame = ttk.Frame(options_frame)
+        res_frame.pack(fill=tk.X, pady=2)
+        ttk.Label(res_frame, text="Resolution:").pack(side=tk.LEFT)
+        res_var = tk.StringVar(value="1280x1280")
+        res_entry = ttk.Entry(res_frame, textvariable=res_var, width=15)
+        res_entry.pack(side=tk.LEFT, padx=5)
+
+        # Start button
+        ttk.Button(crop_window, text="Start Crop", 
+                  command=lambda: [
+                      self.start_smart_crop(path_vars, mode_var.get(), margin_var.get(), res_var.get()),
+                      crop_window.destroy()
+                  ]).pack(pady=10)
+
     def start_smart_crop(self, path_vars, mode, margin, resolution):
         """Handles the smart crop process."""
         # Validate paths
@@ -1254,39 +1492,6 @@ class ImageViewer:
             )
         except Exception as e:
             messagebox.showerror("Error", f"Error during smart crop: {str(e)}")
-
-    # ------------------ BINDING MOUSEWHEEL ------------------
-    
-    def _bind_mousewheel(self):
-        os_name = platform.system()
-        if os_name == 'Windows':
-            self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)
-        elif os_name == 'Darwin':  # macOS
-            self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)
-        else:  # Linux e altri
-            self.canvas.bind("<Button-4>", self.on_mouse_wheel)
-            self.canvas.bind("<Button-5>", self.on_mouse_wheel)
-
-    def on_mouse_wheel(self, event):
-        os_name = platform.system()
-        if os_name == 'Windows':
-            # On Windows, event.delta è un multiplo di 120
-            if event.delta > 0:
-                self.canvas.yview_scroll(-1, "units")
-            elif event.delta < 0:
-                self.canvas.yview_scroll(1, "units")
-        elif os_name == 'Darwin':
-            # Su macOS, event.delta di solito è piccolo, invertire direzione
-            if event.delta > 0:
-                self.canvas.yview_scroll(-1, "units")
-            elif event.delta < 0:
-                self.canvas.yview_scroll(1, "units")
-        else:
-            # Su Linux, event.num è 4 (scroll up) o 5 (scroll down)
-            if event.num == 4:
-                self.canvas.yview_scroll(-1, "units")
-            elif event.num == 5:
-                self.canvas.yview_scroll(1, "units")
 
     # ============================== MAIN ==============================
     def run(self):
@@ -1429,6 +1634,39 @@ class ImageViewer:
                         label_outfile.write(f"{int(class_id)} {new_x_center:.6f} {new_y_center:.6f} {new_box_width:.6f} {new_box_height:.6f}\n")
         
         messagebox.showinfo("Success", "Smart crop completed successfully!")
+
+    # ------------------ BINDING MOUSEWHEEL ------------------
+    
+    def _bind_mousewheel(self):
+        os_name = platform.system()
+        if os_name == 'Windows':
+            self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)
+        elif os_name == 'Darwin':  # macOS
+            self.canvas.bind("<MouseWheel>", self.on_mouse_wheel)
+        else:  # Linux e altri
+            self.canvas.bind("<Button-4>", self.on_mouse_wheel)
+            self.canvas.bind("<Button-5>", self.on_mouse_wheel)
+
+    def on_mouse_wheel(self, event):
+        os_name = platform.system()
+        if os_name == 'Windows':
+            # On Windows, event.delta è un multiplo di 120
+            if event.delta > 0:
+                self.canvas.yview_scroll(-1, "units")
+            elif event.delta < 0:
+                self.canvas.yview_scroll(1, "units")
+        elif os_name == 'Darwin':
+            # Su macOS, event.delta di solito è piccolo, invertire direzione
+            if event.delta > 0:
+                self.canvas.yview_scroll(-1, "units")
+            elif event.delta < 0:
+                self.canvas.yview_scroll(1, "units")
+        else:
+            # Su Linux, event.num è 4 (scroll up) o 5 (scroll down)
+            if event.num == 4:
+                self.canvas.yview_scroll(-1, "units")
+            elif event.num == 5:
+                self.canvas.yview_scroll(1, "units")
 
 # ------------------------------------------------------------------------------
 # Esegui il programma

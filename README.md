@@ -11,7 +11,10 @@ A Python-based GUI tool for image annotation and processing, with support for YO
 - Batch processing capabilities
 - Real-time annotation information display
 - Zoom and pan controls
-- Resizable interface
+- Resizable and adjustable interface with horizontal panel dividers
+- Optimized image rendering for improved performance
+- Enhanced zoom functionality with smooth scaling
+- Improved image loading with caching for better performance
 
 ## Requirements
 
@@ -72,6 +75,14 @@ python visualedit.py
    - View and edit annotations
    - Real-time information display
    - Zoom and pan controls
+   - Optimized rendering for faster navigation
+
+4. **Enhanced User Interface**
+   - Horizontally adjustable panels for flexible workspace layout
+   - Organized control buttons at the top of the window
+   - Improved image display with zoom level persistence between images
+   - Efficient image caching for better performance
+   - Smooth mousewheel scrolling functionality
 
 ## Directory Structure
 
